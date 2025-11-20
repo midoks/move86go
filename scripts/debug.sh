@@ -4,6 +4,7 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 
 APP_NAME=move86go
 TAGRT_DIR=/usr/local/${APP_NAME}_dev
+# /usr/local/move86go_dev
 
 mkdir -p $TAGRT_DIR
 cd $TAGRT_DIR
