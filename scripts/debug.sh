@@ -35,4 +35,4 @@ service ${APP_NAME} restart
 
 
 
-cd /usr/local/move86go_dev/move86go &&  go build ./ && ./move86go service
+cd /usr/local/move86go_dev/move86go &&  go build ./ && ./move86go debug
