@@ -49,7 +49,7 @@ var EnableRandomWindow = true
 var WindowJitter = 2
 var httpPortSet map[uint16]struct{}
 
-var M86Debug = false
+var M86Debug = true
 
 func SetDebug(d bool) {
 	M86Debug = d
