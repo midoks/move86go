@@ -49,52 +49,16 @@ func Run() {
 	setIptable(HttpPort)
 	var wg sync.WaitGroup
 	if EnableSynAck {
-		queueStart, queueEnd, poolNum := getQueueBalance(QueueBalanceSynAck)
-		p1, _ := ants.NewPoolWithFunc(poolNum, func(i interface{}) {
-			packetHandle(i.(int))
-			wg.Done()
-		})
-		defer p1.Release()
-		for i := queueStart; i < queueEnd; i++ {
-			wg.Add(1)
-			_ = p1.Invoke(int(i))
-		}
+		startQueues(QueueBalanceSynAck, &wg)
 	}
 	if EnableAck {
-		queueStart, queueEnd, poolNum := getQueueBalance(QueueBalanceAck)
-		p2, _ := ants.NewPoolWithFunc(poolNum, func(i interface{}) {
-			packetHandle(i.(int))
-			wg.Done()
-		})
-		defer p2.Release()
-		for i := queueStart; i < queueEnd; i++ {
-			wg.Add(1)
-			_ = p2.Invoke(int(i))
-		}
+		startQueues(QueueBalanceAck, &wg)
 	}
 	if EnablePshAck {
-		queueStart, queueEnd, poolNum := getQueueBalance(QueueBalancePshAck)
-		p3, _ := ants.NewPoolWithFunc(poolNum, func(i interface{}) {
-			packetHandle(i.(int))
-			wg.Done()
-		})
-		defer p3.Release()
-		for i := queueStart; i < queueEnd; i++ {
-			wg.Add(1)
-			_ = p3.Invoke(int(i))
-		}
+		startQueues(QueueBalancePshAck, &wg)
 	}
 	if EnableFinAck {
-		queueStart, queueEnd, poolNum := getQueueBalance(QueueBalanceFinAck)
-		p4, _ := ants.NewPoolWithFunc(poolNum, func(i interface{}) {
-			packetHandle(i.(int))
-			wg.Done()
-		})
-		defer p4.Release()
-		for i := queueStart; i < queueEnd; i++ {
-			wg.Add(1)
-			_ = p4.Invoke(int(i))
-		}
+		startQueues(QueueBalanceFinAck, &wg)
 	}
 }
 
@@ -156,16 +120,16 @@ func packetHandle(queueNum int) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
+	portSet := buildPortSet(HttpPort)
+
 	fn := func(a nfqueue.Attribute) int {
 		id := *a.PacketID
 		packet := gopacket.NewPacket(*a.Payload, layers.LayerTypeIPv4, gopacket.Default)
 		if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
 			if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
 				tcp, _ := tcpLayer.(*layers.TCP)
-				ports := strings.Split(HttpPort, ",")
-				sport := strings.TrimPrefix(tcp.SrcPort.String(), "Port(")
-				sport = strings.TrimSuffix(sport, ")")
-				if contains(ports, sport) {
+				sport := uint16(tcp.SrcPort)
+				if _, ok := portSet[sport]; ok {
 					var ok1 = EnableSynAck && tcp.SYN && tcp.ACK
 					var ok2 = EnableAck && tcp.ACK && !tcp.PSH && !tcp.FIN && !tcp.SYN && !tcp.RST
 					var ok3 = EnablePshAck && tcp.PSH && tcp.ACK
@@ -224,7 +188,7 @@ func packetHandle(queueNum int) {
 				}
 				err := nf.SetVerdict(id, nfqueue.NfAccept)
 				if err != nil {
-					logx.Error("[lagran] SetVerdictModified error: %v\n", err)
+					logx.Error("[lagran] SetVerdict error: %v\n", err)
 				}
 				return 0
 			}
@@ -232,7 +196,7 @@ func packetHandle(queueNum int) {
 
 		err := nf.SetVerdict(id, nfqueue.NfAccept)
 		if err != nil {
-			logx.Error("[lagran] SetVerdictModified error: %v\n", err)
+			logx.Error("[lagran] SetVerdict error: %v\n", err)
 		}
 		return 0
 	}
@@ -248,13 +212,17 @@ func packetHandle(queueNum int) {
 	<-ctx.Done()
 }
 
-func contains(slice []string, item string) bool {
-	for _, v := range slice {
-		if v == item {
-			return true
-		}
+func startQueues(queueRange string, wg *sync.WaitGroup) {
+	queueStart, queueEnd, poolNum := getQueueBalance(queueRange)
+	p, _ := ants.NewPoolWithFunc(poolNum, func(i interface{}) {
+		packetHandle(i.(int))
+		wg.Done()
+	})
+	defer p.Release()
+	for i := queueStart; i < queueEnd; i++ {
+		wg.Add(1)
+		_ = p.Invoke(int(i))
 	}
-	return false
 }
 
 func addNFQueueRule(ipt *iptables.IPTables, sport, tcpFlags, queueRange string) {
@@ -271,4 +239,14 @@ func getQueueBalance(val string) (int, int, int) {
 	val2 := core.Str2int(vals[1])
 	val3 := val2 - val1
 	return val1, val2, val3
+}
+
+func buildPortSet(s string) map[uint16]struct{} {
+	m := make(map[uint16]struct{})
+	parts := strings.Split(s, ",")
+	for _, p := range parts {
+		v := uint16(core.Str2int(p))
+		m[v] = struct{}{}
+	}
+	return m
 }
