@@ -161,7 +161,7 @@ func packetHandle(queueNum int) {
 						windowSize = adjustWindowSize(windowSize, WindowJitter)
 					}
 					tcp.Window = windowSize
-					logx.Debug("[lagran] windowSize:", windowSize)
+
 					var err error
 					if nl, ok := ipLayer.(gopacket.NetworkLayer); ok {
 						err = tcp.SetNetworkLayerForChecksum(nl)
@@ -178,6 +178,9 @@ func packetHandle(queueNum int) {
 					}
 					packetBytes := buffer.Bytes()
 					if M86Debug {
+
+						logx.Debug("[lagran] windowSize:", windowSize)
+
 						sample := 64
 						n := sample
 						if len(packetBytes) < n {
