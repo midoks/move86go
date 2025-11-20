@@ -7,14 +7,12 @@ import (
 	"github.com/urfave/cli"
 
 	"move86go/internal/cmd"
-
 )
 
 const (
 	Version = "1.0"
 	AppName = "move86go"
 )
-
 
 func main() {
 	app := cli.NewApp()

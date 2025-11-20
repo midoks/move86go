@@ -1,11 +1,12 @@
 //go:build linux
+
 package lagran
 
 import (
-    "context"
-    "strings"
-    "sync"
-    "time"
+	"context"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/florianl/go-nfqueue"
@@ -18,11 +19,12 @@ import (
 )
 
 var HttpPort = "80,443,8888"
+
 const (
-	EnableSynAck = true
-	EnableAck    = true
-	EnablePshAck = true
-	EnableFinAck = true
+	EnableSynAck       = true
+	EnableAck          = true
+	EnablePshAck       = true
+	EnableFinAck       = true
 	QueueBalanceSynAck = "1000:4000"
 	QueueBalanceAck    = "10000:13000"
 	QueueBalancePshAck = "45000:46000"
@@ -37,10 +39,9 @@ var WindowSizeOfAck = 5
 var WindowSizeOfPshAck = 5
 var WindowSizeOfFinAck = 5
 
-
 func Run() {
-    setIptable(HttpPort)
-    var wg sync.WaitGroup
+	setIptable(HttpPort)
+	var wg sync.WaitGroup
 	if EnableSynAck {
 		queueStart, queueEnd, poolNum := getQueueBalance(QueueBalanceSynAck)
 		p1, _ := ants.NewPoolWithFunc(poolNum, func(i interface{}) {
@@ -92,11 +93,11 @@ func Run() {
 }
 
 func setIptable(sport string) {
-    ipt, err := iptables.New()
-    if err != nil {
-        logx.Error("[lagran service] Iptabels new error:%v\n", err)
-        return
-    }
+	ipt, err := iptables.New()
+	if err != nil {
+		logx.Error("[lagran service] Iptabels new error:%v\n", err)
+		return
+	}
 	if EnableSynAck {
 		addNFQueueRule(ipt, sport, "SYN,ACK", QueueBalanceSynAck)
 	}
@@ -111,11 +112,11 @@ func setIptable(sport string) {
 	}
 }
 func UnsetIptable(sport string) {
-    ipt, err := iptables.New()
-    if err != nil {
-        logx.Error("[lagran service] Iptabels new error:%v", err)
-        return
-    }
+	ipt, err := iptables.New()
+	if err != nil {
+		logx.Error("[lagran service] Iptabels new error:%v", err)
+		return
+	}
 	if EnableSynAck {
 		rmNFQueueRule(ipt, sport, "SYN,ACK", QueueBalanceSynAck)
 	}
@@ -138,13 +139,13 @@ func packetHandle(queueNum int) {
 		WriteTimeout: WriteTimeout,
 	}
 
-    nf, err := nfqueue.Open(&nfqconfig)
-    if err != nil {
-        logx.Error("[lagran] could not open nfqueue socket:", err)
-        return
-    }
+	nf, err := nfqueue.Open(&nfqconfig)
+	if err != nil {
+		logx.Error("[lagran] could not open nfqueue socket:", err)
+		return
+	}
 
-    defer nf.Close()
+	defer nf.Close()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
@@ -177,8 +178,8 @@ func packetHandle(queueNum int) {
 						if ok4 {
 							windowSize = uint16(WindowSizeOfFinAck)
 						}
-						packet.TransportLayer().(*layers.TCP).Window = windowSize
-						err := packet.TransportLayer().(*layers.TCP).SetNetworkLayerForChecksum(packet.NetworkLayer())
+						tcp.Window = windowSize
+						err := tcp.SetNetworkLayerForChecksum(packet.NetworkLayer())
 						if err != nil {
 							logx.Error("[lagran] SetNetworkLayerForChecksum error: %v\n", err)
 						}
