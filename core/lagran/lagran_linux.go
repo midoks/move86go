@@ -44,11 +44,13 @@ var EnableRandomWindow = true
 
 // var WindowJitter = 0
 var WindowJitter = 2
+var httpPortSet map[uint16]struct{}
 
 func Run() {
 	rand.Seed(time.Now().UnixNano())
 
 	setIptable(HttpPort)
+	httpPortSet = buildPortSet(HttpPort)
 	var wg sync.WaitGroup
 	if EnableSynAck {
 		startQueues(QueueBalanceSynAck, &wg)
@@ -122,8 +124,6 @@ func packetHandle(queueNum int) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
-	portSet := buildPortSet(HttpPort)
-
 	fn := func(a nfqueue.Attribute) int {
 		id := *a.PacketID
 		packet := gopacket.NewPacket(*a.Payload, layers.LayerTypeIPv4, gopacket.Default)
@@ -131,60 +131,43 @@ func packetHandle(queueNum int) {
 			if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
 				tcp, _ := tcpLayer.(*layers.TCP)
 				sport := uint16(tcp.SrcPort)
-				if _, ok := portSet[sport]; ok {
+				if _, ok := httpPortSet[sport]; ok {
 					var ok1 = EnableSynAck && tcp.SYN && tcp.ACK
 					var ok2 = EnableAck && tcp.ACK && !tcp.PSH && !tcp.FIN && !tcp.SYN && !tcp.RST
 					var ok3 = EnablePshAck && tcp.PSH && tcp.ACK
 					var ok4 = EnableFinAck && tcp.FIN && tcp.ACK
-					var windowSize uint16
-					if ok1 || ok2 || ok3 || ok4 {
-						if ok1 {
-							windowSize = uint16(WindowSizeOfSynAck)
-						}
-						if ok2 {
-							windowSize = uint16(WindowSizeOfAck)
-						}
-						if ok3 {
-							windowSize = uint16(WindowSizeOfPshAck)
-						}
-						if ok4 {
-							windowSize = uint16(WindowSizeOfFinAck)
-						}
-						if EnableRandomWindow {
-							base := int(windowSize)
-							jitter := WindowJitter
-							if jitter > 0 {
-								min := base - jitter
-								if min < 0 {
-									min = 0
-								}
-								max := base + jitter
-								windowSize = uint16(min + rand.Intn(max-min+1))
-							}
-						}
-						tcp.Window = windowSize
-						err := tcp.SetNetworkLayerForChecksum(packet.NetworkLayer())
+					size, modify := computeWindowSize(tcp, ok1, ok2, ok3, ok4)
+					if !modify {
+						err := nf.SetVerdict(id, nfqueue.NfAccept)
 						if err != nil {
-							logx.Error("[lagran] SetNetworkLayerForChecksum error: %v\n", err)
-						}
-						buffer := gopacket.NewSerializeBuffer()
-						options := gopacket.SerializeOptions{
-							ComputeChecksums: true,
-							FixLengths:       true,
-						}
-						if err := gopacket.SerializePacket(buffer, options, packet); err != nil {
-							logx.Error("[lagran] SerializePacket error: %v\n", err)
-						}
-						packetBytes := buffer.Bytes()
-						err = nf.SetVerdictModPacket(id, nfqueue.NfAccept, packetBytes)
-						if err != nil {
-							logx.Error("[lagran] SetVerdictModified error: %v\n", err)
+							logx.Error("[lagran] SetVerdict error: %v\n", err)
 						}
 						return 0
 					}
-					err := nf.SetVerdict(id, nfqueue.NfAccept)
+
+					windowSize := size
+					if EnableRandomWindow {
+						windowSize = adjustWindowSize(windowSize, WindowJitter)
+					}
+					tcp.Window = windowSize
+					var err error
+					if nl, ok := ipLayer.(gopacket.NetworkLayer); ok {
+						err = tcp.SetNetworkLayerForChecksum(nl)
+					} else {
+						err = tcp.SetNetworkLayerForChecksum(packet.NetworkLayer())
+					}
 					if err != nil {
-						logx.Error("[lagran] SetVerdictModified error: %v\n", err)
+						logx.Error("[lagran] SetNetworkLayerForChecksum error: %v\n", err)
+					}
+					buffer := gopacket.NewSerializeBuffer()
+					options := gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true}
+					if err := gopacket.SerializePacket(buffer, options, packet); err != nil {
+						logx.Error("[lagran] SerializePacket error: %v\n", err)
+					}
+					packetBytes := buffer.Bytes()
+					err = nf.SetVerdictModPacket(id, nfqueue.NfAccept, packetBytes)
+					if err != nil {
+						logx.Error("[lagran] SetVerdictModPacket error: %v\n", err)
 					}
 					return 0
 				}
@@ -251,4 +234,36 @@ func buildPortSet(s string) map[uint16]struct{} {
 		m[v] = struct{}{}
 	}
 	return m
+}
+
+func computeWindowSize(tcp *layers.TCP, ok1, ok2, ok3, ok4 bool) (uint16, bool) {
+	if ok1 {
+		return uint16(WindowSizeOfSynAck), true
+	}
+	if ok2 {
+		return uint16(WindowSizeOfAck), true
+	}
+	if ok3 {
+		return uint16(WindowSizeOfPshAck), true
+	}
+	if ok4 {
+		return uint16(WindowSizeOfFinAck), true
+	}
+	return 0, false
+}
+
+func adjustWindowSize(base uint16, jitter int) uint16 {
+	if jitter <= 0 {
+		return base
+	}
+	b := int(base)
+	min := b - jitter
+	if min < 0 {
+		min = 0
+	}
+	max := b + jitter
+	if max > 65535 {
+		max = 65535
+	}
+	return uint16(min + rand.Intn(max-min+1))
 }
