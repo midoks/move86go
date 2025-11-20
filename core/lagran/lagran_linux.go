@@ -40,8 +40,10 @@ var WindowSizeOfAck = 5
 var WindowSizeOfPshAck = 5
 var WindowSizeOfFinAck = 5
 
-var EnableRandomWindow = false
-var WindowJitter = 0
+var EnableRandomWindow = true
+
+// var WindowJitter = 0
+var WindowJitter = 2
 
 func Run() {
 	rand.Seed(time.Now().UnixNano())
