@@ -34,4 +34,5 @@ systemctl daemon-reload
 service ${APP_NAME} restart
 
 
-cd $TAGRT_DIR/${APP_NAME} && ./${APP_NAME} -v
+
+cd /usr/local/move86go_dev/move86go &&  go build ./ && ./move86go service
