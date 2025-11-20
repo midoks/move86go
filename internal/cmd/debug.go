@@ -22,7 +22,7 @@ var Service = cli.Command{
 }
 
 func runService(c *cli.Context) error {
-	lagran.setDebug(true)
+	lagran.SetDebug(true)
 	logx.Info("Run")
 	if portData, err := core.FileRead("port.txt"); err == nil {
 		lagran.HttpPort = string(portData)

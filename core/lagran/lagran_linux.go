@@ -51,7 +51,7 @@ var httpPortSet map[uint16]struct{}
 
 var M86Debug = false
 
-func setDebug(d bool) {
+func SetDebug(d bool) {
 	M86Debug = d
 }
 
