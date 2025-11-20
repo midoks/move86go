@@ -4,10 +4,13 @@ package lagran
 
 import (
 	"context"
+	"encoding/hex"
 	"math/rand"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/florianl/go-nfqueue"
@@ -45,6 +48,12 @@ var EnableRandomWindow = true
 // var WindowJitter = 0
 var WindowJitter = 2
 var httpPortSet map[uint16]struct{}
+
+var M86Debug = false
+
+func setDebug(d bool) {
+	M86Debug = d
+}
 
 func Run() {
 	rand.Seed(time.Now().UnixNano())
@@ -85,6 +94,7 @@ func setIptable(sport string) {
 		addNFQueueRule(ipt, sport, "FIN,ACK", QueueBalanceFinAck)
 	}
 }
+
 func UnsetIptable(sport string) {
 	ipt, err := iptables.New()
 	if err != nil {
@@ -104,6 +114,7 @@ func UnsetIptable(sport string) {
 		rmNFQueueRule(ipt, sport, "FIN,ACK", QueueBalanceFinAck)
 	}
 }
+
 func packetHandle(queueNum int) {
 	nfqconfig := nfqueue.Config{
 		NfQueue:      uint16(queueNum),
@@ -150,6 +161,7 @@ func packetHandle(queueNum int) {
 						windowSize = adjustWindowSize(windowSize, WindowJitter)
 					}
 					tcp.Window = windowSize
+					logx.Debug("[lagran] windowSize:", windowSize)
 					var err error
 					if nl, ok := ipLayer.(gopacket.NetworkLayer); ok {
 						err = tcp.SetNetworkLayerForChecksum(nl)
@@ -165,6 +177,20 @@ func packetHandle(queueNum int) {
 						logx.Error("[lagran] SerializePacket error: %v\n", err)
 					}
 					packetBytes := buffer.Bytes()
+					if M86Debug {
+						sample := 64
+						n := sample
+						if len(packetBytes) < n {
+							n = len(packetBytes)
+						}
+						asciiStr := utf8Preview(packetBytes, sample)
+						hexStr := hex.EncodeToString(packetBytes[:n])
+						if n < len(packetBytes) {
+							hexStr = hexStr + "..."
+						}
+						logx.Debug("[lagran] packetBytes len:", len(packetBytes), " ascii:", asciiStr, " hex:", hexStr)
+					}
+
 					err = nf.SetVerdictModPacket(id, nfqueue.NfAccept, packetBytes)
 					if err != nil {
 						logx.Error("[lagran] SetVerdictModPacket error: %v\n", err)
@@ -266,4 +292,54 @@ func adjustWindowSize(base uint16, jitter int) uint16 {
 		max = 65535
 	}
 	return uint16(min + rand.Intn(max-min+1))
+}
+
+func asciiPreview(b []byte, sample int) string {
+	n := sample
+	if len(b) < n {
+		n = len(b)
+	}
+	out := make([]byte, n)
+	for i := 0; i < n; i++ {
+		c := b[i]
+		if c >= 32 && c <= 126 {
+			out[i] = c
+		} else {
+			out[i] = '.'
+		}
+	}
+	if n < len(b) {
+		return string(out) + "..."
+	}
+	return string(out)
+}
+
+func utf8Preview(b []byte, sample int) string {
+	if sample <= 0 {
+		return ""
+	}
+	n := sample
+	if len(b) < n {
+		n = len(b)
+	}
+	var sb strings.Builder
+	i := 0
+	for i < n {
+		r, size := utf8.DecodeRune(b[i:n])
+		if r == utf8.RuneError && size == 1 {
+			sb.WriteByte('.')
+			i++
+			continue
+		}
+		if unicode.IsPrint(r) {
+			sb.WriteRune(r)
+		} else {
+			sb.WriteByte('.')
+		}
+		i += size
+	}
+	if n < len(b) {
+		sb.WriteString("...")
+	}
+	return sb.String()
 }

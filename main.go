@@ -21,6 +21,7 @@ func main() {
 	app.Usage = "move86go service"
 	app.Commands = []cli.Command{
 		cmd.Service,
+		cmd.Debug,
 	}
 
 	if err := app.Run(os.Args); err != nil {

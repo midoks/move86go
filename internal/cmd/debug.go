@@ -11,17 +11,17 @@ import (
 	"move86go/core/logx"
 )
 
-var Debug = cli.Command{
-	Name:        "debug",
-	Usage:       "this command debug service",
-	Description: `debug service`,
-	Action:      runDebug,
+var Service = cli.Command{
+	Name:        "service",
+	Usage:       "this command start service",
+	Description: `start service`,
+	Action:      runService,
 	Flags: []cli.Flag{
 		stringFlag("config, c", "", "custom configuration file path"),
 	},
 }
 
-func runDebug(c *cli.Context) error {
+func runService(c *cli.Context) error {
 	logx.Info("Run")
 	if portData, err := core.FileRead("port.txt"); err == nil {
 		lagran.HttpPort = string(portData)
