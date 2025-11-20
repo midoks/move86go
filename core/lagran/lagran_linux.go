@@ -4,6 +4,7 @@ package lagran
 
 import (
 	"context"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -39,7 +40,12 @@ var WindowSizeOfAck = 5
 var WindowSizeOfPshAck = 5
 var WindowSizeOfFinAck = 5
 
+var EnableRandomWindow = false
+var WindowJitter = 0
+
 func Run() {
+	rand.Seed(time.Now().UnixNano())
+
 	setIptable(HttpPort)
 	var wg sync.WaitGroup
 	if EnableSynAck {
@@ -177,6 +183,18 @@ func packetHandle(queueNum int) {
 						}
 						if ok4 {
 							windowSize = uint16(WindowSizeOfFinAck)
+						}
+						if EnableRandomWindow {
+							base := int(windowSize)
+							jitter := WindowJitter
+							if jitter > 0 {
+								min := base - jitter
+								if min < 0 {
+									min = 0
+								}
+								max := base + jitter
+								windowSize = uint16(min + rand.Intn(max-min+1))
+							}
 						}
 						tcp.Window = windowSize
 						err := tcp.SetNetworkLayerForChecksum(packet.NetworkLayer())
