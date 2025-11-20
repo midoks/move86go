@@ -22,7 +22,7 @@ fi
 
 rm -rf ./go.sum
 rm -rf ./go.mod
-go mod init github.com/midoks/${APP_NAME}
+go mod init move86go
 go mod tidy
 go mod vendor
 
