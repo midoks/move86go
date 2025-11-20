@@ -6,3 +6,8 @@
 
 
 
+# 调式
+
+```
+bash <(curl --insecure -fsSL https://raw.githubusercontent.com/midoks/move86go/main/scripts/install.sh)
+```
