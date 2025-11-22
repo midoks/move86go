@@ -1,5 +1,5 @@
 dev: true
-title: zzz
+title: move86go
 frequency: 3
 dirfilter:
 - tmp
@@ -17,7 +17,9 @@ action:
   before:
     - gofmt -w ./
   after:
-    - echo "zzz end"
+    - ps -ef|grep 'move86go service'| grep -v grep | awk '{print $2}' | xargs kill -9
+    - ./move86go service &
   exit:
-    - echo "exit"
+    - ps -ef|grep 'move86go service'| grep -v grep | awk '{print $2}' | xargs kill -9
+    - rm -rf ./move86go
 link: https://github.com/midoks/zzz
