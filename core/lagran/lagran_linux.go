@@ -180,7 +180,7 @@ func packetHandle(queueNum int) {
 					if M86Debug {
 
 						if ip4, ok := ipLayer.(*layers.IPv4); ok {
-							logx.Debug("[lagran] srcIP:", ip4.SrcIP.String())
+							logx.Debug("[lagran] srcIP:", ip4.SrcIP.String(), " dstIP:", ip4.DstIP.String(), " sport:", uint16(tcp.SrcPort), " dport:", uint16(tcp.DstPort))
 						}
 
 						logx.Debug("[lagran] windowSize:", windowSize)
