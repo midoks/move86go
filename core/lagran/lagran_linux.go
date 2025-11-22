@@ -179,6 +179,10 @@ func packetHandle(queueNum int) {
 					packetBytes := buffer.Bytes()
 					if M86Debug {
 
+						if ip4, ok := ipLayer.(*layers.IPv4); ok {
+							logx.Debug("[lagran] srcIP:", ip4.SrcIP.String())
+						}
+
 						logx.Debug("[lagran] windowSize:", windowSize)
 
 						dump := hexDump(packetBytes, 128)

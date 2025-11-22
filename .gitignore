@@ -34,3 +34,4 @@ go.work.sum
 /vendor
 *.DS_Store
 move86go
+.readme.md
