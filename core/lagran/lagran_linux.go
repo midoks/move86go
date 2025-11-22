@@ -4,7 +4,7 @@ package lagran
 
 import (
 	"context"
-	"encoding/hex"
+	"fmt"
 	"math/rand"
 	"strings"
 	"sync"
@@ -181,17 +181,9 @@ func packetHandle(queueNum int) {
 
 						logx.Debug("[lagran] windowSize:", windowSize)
 
-						sample := 64
-						n := sample
-						if len(packetBytes) < n {
-							n = len(packetBytes)
-						}
-						asciiStr := utf8Preview(packetBytes, sample)
-						hexStr := hex.EncodeToString(packetBytes[:n])
-						if n < len(packetBytes) {
-							hexStr = hexStr + "..."
-						}
-						logx.Debug("[lagran] packetBytes len:", len(packetBytes), " ascii:", asciiStr, " hex:", hexStr)
+						dump := hexDump(packetBytes, 128)
+						logx.Debug("[lagran] packetBytes len:", len(packetBytes))
+						logx.Debug("[lagran] packetBytes dump:\n" + dump)
 					}
 
 					err = nf.SetVerdictModPacket(id, nfqueue.NfAccept, packetBytes)
@@ -343,6 +335,48 @@ func utf8Preview(b []byte, sample int) string {
 	}
 	if n < len(b) {
 		sb.WriteString("...")
+	}
+	return sb.String()
+}
+
+func hexDump(b []byte, sample int) string {
+	if sample <= 0 {
+		return ""
+	}
+	n := sample
+	if len(b) < n {
+		n = len(b)
+	}
+	var sb strings.Builder
+	width := 16
+	for i := 0; i < n; i += width {
+		end := i + width
+		if end > n {
+			end = n
+		}
+		sb.WriteString(fmt.Sprintf("%04x: ", i))
+		for j := i; j < i+width; j++ {
+			if j < end {
+				sb.WriteString(fmt.Sprintf("%02x ", b[j]))
+			} else {
+				sb.WriteString("   ")
+			}
+		}
+		sb.WriteString(" ")
+		for j := i; j < end; j++ {
+			c := b[j]
+			if c >= 32 && c <= 126 {
+				sb.WriteByte(c)
+			} else {
+				sb.WriteByte('.')
+			}
+		}
+		if end < n {
+			sb.WriteByte('\n')
+		}
+	}
+	if n < len(b) {
+		sb.WriteString("\n...")
 	}
 	return sb.String()
 }
