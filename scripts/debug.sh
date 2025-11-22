@@ -38,4 +38,7 @@ service ${APP_NAME} restart
 
 # cd /usr/local/move86go_dev/move86go && go build ./ && ./move86go debug
 
-cd /usr/local/move86go_dev/move86go && go build ./ && setcap cap_net_admin,cap_net_raw+ep ./move86go && systemd-run --unit=move86go-debug -p 'AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW' -p 'CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW' -p 'NoNewPrivileges=yes' ./move86go debug
+# cd /usr/local/move86go_dev/move86go && go build ./ && setcap cap_net_admin,cap_net_raw+ep ./move86go && systemd-run --unit=move86go-debug -p 'AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW' -p 'CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW' -p 'NoNewPrivileges=yes' ./move86go debug
+
+
+cd /usr/local/move86go_dev/move86go && go build ./ && setcap cap_net_admin,cap_net_raw+ep ./move86go && ./move86go debug
