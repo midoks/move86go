@@ -22,7 +22,7 @@ import (
 	"move86go/core/logx"
 )
 
-var HttpPort = "80,443,8888"
+var HttpPort = "80,443,8888,9999"
 
 const (
 	EnableSynAck       = true
